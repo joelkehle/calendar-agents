@@ -1,0 +1,154 @@
+{
+  "schema": "venues.v1",
+  "_doc": "Venue knowledge for travel math (static matrix v1). Minutes are hand-entered estimates; promote stable facts to the wiki when proven.",
+  "default_travel_minutes": 30,
+  "office_aliases": [
+    "10889 wilshire",
+    "wilshire center",
+    "ucla tdg"
+  ],
+  "virtual_aliases": [
+    "http://",
+    "https://",
+    "microsoft teams",
+    "teams meeting",
+    "zoom",
+    "webex",
+    "meet.google",
+    "dial-in",
+    "conference call",
+    "messenger"
+  ],
+  "venues": [
+    {
+      "id": "200-medical-plaza",
+      "name": "200 Medical Plaza",
+      "address": "200 Medical Plaza, Los Angeles, CA 90024",
+      "match": [
+        "200 medical plaza",
+        "200 med plaza"
+      ],
+      "walk_minutes": 10,
+      "parking": "Patient drop-off/pick-up loop off Westwood Plaza for pickups; 200 Medical Plaza structure adjacent if parking \u2014 allow 10-15 min for parking + walk.",
+      "travel_minutes": {
+        "ucla-tdg-office": 5,
+        "alto-cedro": 20,
+        "orange-drive": 25
+      }
+    },
+    {
+      "id": "ucla-tdg-office",
+      "name": "UCLA TDG office",
+      "address": "10889 Wilshire Blvd, Los Angeles, CA 90095",
+      "match": [
+        "10889 wilshire",
+        "wilshire center",
+        "ucla tdg"
+      ],
+      "walk_minutes": 5,
+      "parking": "UNVERIFIED \u2014 confirm building parking with Joel.",
+      "travel_minutes": {
+        "alto-cedro": 20,
+        "orange-drive": 20
+      }
+    },
+    {
+      "id": "ucla-west-medical-building",
+      "name": "UCLA West Medical Building",
+      "address": "1010 Veteran Ave, Los Angeles, CA 90095",
+      "source": "Verified 2026-06-19 from UCLA Health location page; UCLA parking PDF confirms West Medical at 1010 Veteran Ave and Structure 32 parking.",
+      "match": [
+        "ucla west medical building",
+        "west medical building",
+        "1010 veteran"
+      ],
+      "walk_minutes": 10,
+      "parking": "Use UCLA Parking Structure 32 near Kinross/Gayley/Veteran; allow 10 min for parking and building walk.",
+      "travel_minutes": {
+        "ucla-tdg-office": 20,
+        "alto-cedro": 25,
+        "orange-drive": 25
+      }
+    },
+    {
+      "id": "805-tiverton",
+      "name": "805 Tiverton Ave",
+      "address": "805 Tiverton Ave, Los Angeles, CA 90024",
+      "source": "Joel-provided 2026-06-20 for Wednesday David K face-to-face meetings.",
+      "match": [
+        "805 tiverton",
+        "tiverton ave"
+      ],
+      "walk_minutes": 10,
+      "parking": "UCLA/Westwood parking or drop-off near Tiverton; allow 10 min for parking and building walk.",
+      "travel_minutes": {
+        "ucla-tdg-office": 20,
+        "alto-cedro": 25,
+        "orange-drive": 25
+      }
+    },
+    {
+      "id": "ministry-of-coffee-westwood",
+      "name": "Ministry of Coffee Westwood",
+      "address": "1010 Glendon Ave, Westwood, CA 90024",
+      "source": "Verified 2026-06-19 from Ministry of Coffee / Toast Westwood listing.",
+      "match": [
+        "ministry of coffee",
+        "1010 glendon"
+      ],
+      "walk_minutes": 5,
+      "parking": "Westwood street or lot parking; from UCLA TDG office, allow time for a short walk/drive plus ordering buffer.",
+      "travel_minutes": {
+        "ucla-tdg-office": 15,
+        "alto-cedro": 25,
+        "orange-drive": 25
+      }
+    },
+    {
+      "id": "karen-bob-hermosa",
+      "name": "Karen and Bob's (cousin)",
+      "address": "1722 The Strand, Hermosa Beach, CA 90254",
+      "source": "Joel-verified 2026-06-12 (Evite scrape was WRONG - design-canvas artifact said Burbank)",
+      "drive_minutes": {
+        "alto-cedro": 40,
+        "orange-drive": 35,
+        "ucla-tdg-office": 40
+      },
+      "parking": "The Strand has no parking; street parking uphill or lots on Hermosa Ave - allow 10 min walk."
+    },
+    {
+      "id": "manhattan-country-club",
+      "name": "Manhattan Country Club",
+      "address": "1330 Parkview Avenue, Manhattan Beach, CA 90266",
+      "source": "Verified from Bay Club/Waze after 2026-06-18 invite supplied wrong 1330 Manhattan Ave address.",
+      "match": [
+        "manhattan country club",
+        "1330 parkview"
+      ],
+      "walk_minutes": 10,
+      "return_buffer_minutes": 10,
+      "parking": "Verified address is 1330 Parkview Avenue, not 1330 Manhattan Ave. Allow 10 min for arrival, parking, and clubhouse walk.",
+      "travel_minutes": {
+        "alto-cedro": 65,
+        "orange-drive": 50,
+        "ucla-tdg-office": 55
+      },
+      "return_minutes": {
+        "alto-cedro": 50,
+        "orange-drive": 45,
+        "ucla-tdg-office": 45
+      }
+    },
+    {
+      "id": "lax",
+      "name": "LAX airport",
+      "address": "1 World Way, Los Angeles, CA 90045",
+      "drive_minutes": {
+        "alto-cedro": 35,
+        "orange-drive": 30,
+        "ucla-tdg-office": 30
+      },
+      "parking": "Use arrivals loop for pickups; cell phone waiting lot if early."
+    }
+  ]
+}

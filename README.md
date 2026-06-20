@@ -1,11 +1,23 @@
 # calendar-agents
 
-Shared calendar contracts for Joel's personal and professional agent workflows.
+Shared calendar runtime and contracts for Joel's personal and professional
+agent workflows.
 
 This repo is the new home for calendar code that is neither personal-only nor
 UCLA-only.
 
-Extracted packages:
+Runtime commands:
+
+- `cmd/outlook-calendar-agent`: read-only Outlook COM adapter. The same binary
+  is installed as the JK-bus reader (`jk-outlook-calendar-agent`, `:8220`) and
+  UCLA-bus reader (`ucla-tdg-outlook-calendar-agent`, `:8218`).
+- `cmd/outlook-calendar-write-agent`: narrow Outlook writer for guard blocks,
+  working holds, and travel blocks (`ucla-tdg-outlook-calendar-write-agent`,
+  `:8219`).
+- `cmd/scheduler-agent`: shared scheduling and travel-time orchestrator
+  (`ucla-tdg-scheduler-agent`, `:8245`).
+
+Shared packages:
 
 - `pkg/calendaridentity`: stable live bus IDs with explicit shared ownership.
 - `pkg/calendarcontract`: shared Outlook event-class markers, summaries, and
@@ -17,14 +29,13 @@ Extracted packages:
 - `pkg/schedulercontract`: shared scheduler bus request/reply schema,
   capability/status/error constants, and schema helpers.
 
-Current migration status:
+Ownership status:
 
-- Live Outlook read/write and scheduler runtimes still run from
-  `jk/jk-email-agents`.
-- Shared calendar identity, read/write wire schemas, event-class, and scheduler
-  bus contracts live here.
-- Future shared scheduler and Outlook adapter implementation code should be
-  added here first, then consumed by `jk` and `ucla-tdg` repos.
+- Outlook read/write and scheduler runtime source lives here.
+- Historical live bus IDs remain stable during the move.
+- `jk/jk-email-agents` keeps personal email, inbox, operator, and calendar guard
+  policy code. It should consume these shared calendar services instead of
+  owning their runtime.
 
 Validation:
 

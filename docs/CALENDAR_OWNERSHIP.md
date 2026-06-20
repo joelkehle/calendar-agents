@@ -16,12 +16,11 @@ Joel's primary calendar is a shared capability. It may be consumed by personal
 agents and professional agents, but its core contracts are not personal-only and
 not UCLA-only.
 
-## Current Transitional Shape
+## Current Shape
 
-The live implementation still runs mostly from `jk-email-agents` because the
-work started near personal email and calendar guard automation. Some live bus
-IDs still carry `ucla-tdg` prefixes because the first write-side scheduler
-consumer was professional:
+The Outlook read/write and scheduler runtime source lives in this repo. Some
+live bus IDs still carry `jk` or `ucla-tdg` prefixes because those IDs predate
+the shared repo and remain stable for compatibility:
 
 - `jk-outlook-calendar-agent`: personal-bus Outlook read profile.
 - `ucla-tdg-outlook-calendar-agent`: professional-bus Outlook read profile.
@@ -37,14 +36,15 @@ calendar service can register on one or both buses while remaining shared.
 
 ## Placement Rule
 
-- Personal-only email, inbox, Polsia, unsubscribe, or Google Calendar utilities
-  belong under `jk`.
+- Personal-only email, inbox, Polsia, unsubscribe, calendar guard, or legacy
+  Google Calendar utilities belong under `jk`.
 - Professional-only UCLA TDG intake, project, IP, or deal workflows belong under
   `ucla-tdg`.
 - Calendar core shared by personal and professional workflows belongs here under
   `shared/calendar-agents`.
-- Consumer repos may keep thin adapters, deployment wiring, and policy hooks,
-  but new shared calendar contracts should start here.
+- Consumer repos may keep deployment wiring and policy hooks, but new shared
+  Outlook/scheduler runtime code and shared calendar contracts should start
+  here.
 
 ## Incremental Migration Path
 
@@ -54,7 +54,5 @@ Small slices beat a risky wholesale move:
    classes, and scheduler bus contracts in this repo.
 2. Stop adding new UCLA- or JK-owned language to shared calendar contracts.
 3. Keep runtime IDs and allowlists stable until a deploy window exists.
-4. Extract scheduler and Outlook adapter implementation code here as
-   interfaces stabilize.
-5. Leave `jk` and `ucla-tdg` repos with consumers/policies, not calendar-core
+4. Keep `jk` and `ucla-tdg` repos with consumers/policies, not calendar-core
    ownership.

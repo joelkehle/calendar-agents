@@ -1,0 +1,17 @@
+{
+  "_doc": "Test fixture: single residence whose window CLOSES, so dates after 2026-06-30 have no valid residence (no_origin on weekends).",
+  "residences": [
+    {
+      "id": "alto-cedro",
+      "label": "Monte & Jacqueline's (housesitting)",
+      "address": "9121 Alto Cedro Drive, Beverly Hills, CA 90210",
+      "from": "2026-05-18",
+      "until": "2026-06-30"
+    }
+  ],
+  "work": {
+    "id": "ucla-tdg-office",
+    "label": "UCLA TDG office",
+    "address": "10889 Wilshire Blvd, Los Angeles, CA 90095"
+  }
+}

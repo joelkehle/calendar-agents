@@ -1,0 +1,25 @@
+{
+  "_doc": "Joel's origin locations for travel/leave-by math (location-awareness Phase 2). Residences have validity windows; resolve current origin by date. Ids are stable lowercase-kebab keys referenced by data/venues.json travel matrices. Source: Joel, 2026-06-11.",
+  "residences": [
+    {
+      "id": "alto-cedro",
+      "label": "Monte & Jacqueline's (housesitting)",
+      "address": "9121 Alto Cedro Drive, Beverly Hills, CA 90210",
+      "from": "2026-05-18",
+      "until": "2026-06-30"
+    },
+    {
+      "id": "orange-drive",
+      "label": "Home (David Spitzer's house)",
+      "address": "322 S. Orange Drive, Los Angeles, CA 90036",
+      "from": "2026-07-01",
+      "until": null
+    }
+  ],
+  "work": {
+    "id": "ucla-tdg-office",
+    "label": "UCLA TDG office",
+    "address": "10889 Wilshire Blvd, Suite 920, Los Angeles, CA 90095-7191",
+    "note": "Verified by Joel 2026-06-11"
+  }
+}

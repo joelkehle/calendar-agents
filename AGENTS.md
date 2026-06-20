@@ -4,10 +4,10 @@ READ ~/Projects/shared/agent-scripts/AGENTS.MD BEFORE ANYTHING (skip if missing)
 
 ## Purpose
 
-Shared calendar contracts and eventually shared calendar agents for Joel Kehle.
-This repo owns cross-context calendar identity, event-class contracts, scheduler
-interfaces, and Outlook read/write adapter contracts used by both personal and
-UCLA TDG workflows.
+Shared calendar agents and contracts for Joel Kehle. This repo owns
+cross-context Outlook read/write adapter runtime, scheduler/travel runtime,
+calendar identity, event-class contracts, and read/write wire schemas used by
+both personal and UCLA TDG workflows.
 
 ## Start Here
 
@@ -33,10 +33,10 @@ UCLA TDG workflows.
 ## Testing
 
 - Default gate: `go test ./...`
-- Contract changes must include focused unit tests.
+- Contract and runtime changes must include focused unit tests.
 
 ## Deploy
 
-This repo currently owns contracts only. Adding a runtime service requires
-`GET /health`, `GET /metrics`, manager ops visibility, bus allowlist review, and
-endpoint-auth review before deploy.
+Runtime services must expose `GET /health` and `GET /metrics`. Before changing
+ports, bus URLs, agent IDs, scheduled-task names, or systemd units, update the
+manager service inventory/docs and rerun live bus discovery.
