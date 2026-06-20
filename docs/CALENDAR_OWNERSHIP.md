@@ -36,8 +36,8 @@ calendar service can register on one or both buses while remaining shared.
 
 ## Placement Rule
 
-- Personal-only email, inbox, Polsia, unsubscribe, calendar guard, or legacy
-  Google Calendar utilities belong under `jk`.
+- Personal-only email, inbox, Polsia, unsubscribe, or calendar guard utilities
+  belong under `jk`.
 - Professional-only UCLA TDG intake, project, IP, or deal workflows belong under
   `ucla-tdg`.
 - Calendar core shared by personal and professional workflows belongs here under

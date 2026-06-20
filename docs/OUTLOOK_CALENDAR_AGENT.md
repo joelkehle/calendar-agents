@@ -3,17 +3,17 @@ summary: Run Joel's Windows Outlook calendar as a read-only JK bus agent.
 read_when:
   - wiring calendar agenda questions to the JK bus
   - installing or debugging the Windows Outlook calendar agent
-  - changing OPERATOR_GCAL_AGENT_ID or calendar bus routing
+  - changing OPERATOR_CALENDAR_AGENT_ID or calendar bus routing
 ---
 
 # Outlook Calendar Agent
 
 `jk-outlook-calendar-agent` runs on Joel's Windows laptop, reads the primary Outlook calendar through local Outlook COM automation, and registers with the JK Pinakes bus on `beelink:8081`.
 
-It is read-only. It answers the same `events-list` request shape that `jk-gcal-ingest` already uses, so `jk-email-operator` can use Outlook calendar context by setting:
+It is read-only. It answers the shared `events-list` request shape, so `jk-email-operator` can use Outlook calendar context by setting:
 
 ```bash
-OPERATOR_GCAL_AGENT_ID=jk-outlook-calendar-agent
+OPERATOR_CALENDAR_AGENT_ID=jk-outlook-calendar-agent
 ```
 
 ## Status 2026-06-20: Restored
@@ -31,10 +31,8 @@ could default to `:8218`, so the losing task died after a fatal health-server
 bind failure. The default JK reader health port is now `:8220`; UCLA reader
 installs must pass `-HttpAddr ":8218"` explicitly.
 
-Do not repoint `OPERATOR_GCAL_AGENT_ID` at `jk-gcal-ingest` as a workaround
-unless the Outlook adapter is being permanently retired: the request shape is
-identical but `jk-gcal-ingest` serves the personal Google calendar (different
-data) and is write-capable.
+Do not add a parallel calendar adapter as a workaround unless the Outlook adapter
+is being permanently retired: Outlook is Joel's canonical calendar source.
 
 ### Restore Or Upgrade Runbook
 

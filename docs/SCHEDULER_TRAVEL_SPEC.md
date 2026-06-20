@@ -90,7 +90,7 @@ a change, every §7.5 reattach/cancel would fail "item not found" forever.
   events are fully fleet-visible, so exposing it is sanctioned. It is exposed
   for masked private events too (the mask hides subject/location, not
   identity).
-- `gcal.Event.ID` stays the synthetic hash (unchanged — downstream consumers
+- `calendarreadcontract.Event.ID` stays the synthetic hash (unchanged — downstream consumers
   key on it). `source_entry` stays as-is (unchanged). This is the ONLY
   read-agent change; everything else in `internal/outlookcalendar` is
   untouched. §11.6 is amended accordingly (no longer "byte-for-byte").
@@ -1352,7 +1352,7 @@ no existing test modified. Deviations from the letter of this spec:
    `TestWatcherKeyEmbedsInterval` pins this), while a truly moved parent gets
    the §7.5(3) patch (`TestWatcherReattach`).
 5. **JSON key spelling.** The read agent serializes extended properties as
-   `extendedProperties.private.entry_id` (the `gcal.Event` tag), not
+   `extendedProperties.private.entry_id` (the `calendarreadcontract.Event` tag), not
    `extended_properties` as written in §0/§7.5.
 6. **Masked-private events anchor.** §7 preamble says masked-private events
    "count for adjacency"; §7.5(2)'s skip-list cross-reference excluded them.

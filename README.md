@@ -23,7 +23,7 @@ Shared packages:
 - `pkg/calendarcontract`: shared Outlook event-class markers, summaries, and
   timezone constants.
 - `pkg/calendarreadcontract`: shared calendar event/query/response schema used
-  by Outlook and Google calendar agents.
+  by Outlook calendar read agents.
 - `pkg/outlookwritecontract`: shared Outlook write-agent request/response
   schema.
 - `pkg/schedulercontract`: shared scheduler bus request/reply schema,
