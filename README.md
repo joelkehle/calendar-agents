@@ -42,3 +42,15 @@ Validation:
 ```bash
 go test ./...
 ```
+
+Live smoke:
+
+```bash
+CALENDAR_SMOKE_AGENT_SECRET="<jk-calendar-guard-agent bus secret>" \
+  go run ./cmd/calendar-live-smoke
+```
+
+The smoke checks both Outlook read profiles, the scheduler `travel-estimate`
+capability, and a non-destructive write-agent refusal. The writer check uses a
+working-hold shaped request from an unallowlisted sender and expects
+`not_allowlisted`, so it does not create a calendar event.
