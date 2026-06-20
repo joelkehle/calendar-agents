@@ -50,8 +50,8 @@ calendar service can register on one or both buses while remaining shared.
 
 Small slices beat a risky wholesale move:
 
-1. Centralize shared-calendar IDs, names, event classes, and scheduler bus
-   contracts in this repo.
+1. Centralize shared-calendar IDs, names, read/write wire schemas, event
+   classes, and scheduler bus contracts in this repo.
 2. Stop adding new UCLA- or JK-owned language to shared calendar contracts.
 3. Keep runtime IDs and allowlists stable until a deploy window exists.
 4. Extract scheduler and Outlook adapter implementation code here as
