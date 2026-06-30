@@ -32,9 +32,13 @@ func newTravelHarness(t *testing.T, now time.Time, edit func(*Config), onSend fu
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	cfg := Config{
-		BusURL:          h.server.URL,
-		AgentID:         DefaultAgentID,
-		Secret:          "secret",
+		BusURL:  h.server.URL,
+		AgentID: DefaultAgentID,
+		Secret:  "secret",
+		AllowedRequesters: []string{
+			"caller",
+			"caller-2",
+		},
 		UpstreamTimeout: 200 * time.Millisecond,
 		Now:             func() time.Time { return now },
 		LocationsPath:   "../../data/locations.json",

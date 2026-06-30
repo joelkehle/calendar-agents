@@ -45,9 +45,13 @@ func newSchedulerHarness(t *testing.T, now time.Time, onSend func(upstreamMessag
 	t.Cleanup(cancel)
 	h.metrics = telemetry.New("scheduler-test")
 	h.agent = NewAgent(Config{
-		BusURL:          h.server.URL,
-		AgentID:         DefaultAgentID,
-		Secret:          "secret",
+		BusURL:  h.server.URL,
+		AgentID: DefaultAgentID,
+		Secret:  "secret",
+		AllowedRequesters: []string{
+			"caller",
+			"caller-2",
+		},
 		UpstreamTimeout: 20 * time.Millisecond,
 		Now:             func() time.Time { return now },
 	}, h.metrics)
@@ -71,7 +75,7 @@ func (h *schedulerHarness) serveHTTP(w http.ResponseWriter, r *http.Request) {
 			Body:           stringValue(body["body"]),
 			Meta:           mapValue(body["meta"]),
 		}
-		if msg.To == "caller" || msg.To == "caller-2" {
+		if msg.To != DefaultCalendarReadAgent && msg.To != DefaultCalendarWriteAgent {
 			var reply Reply
 			if err := json.Unmarshal([]byte(msg.Body), &reply); err != nil {
 				h.t.Fatalf("decode scheduler reply: %v body=%s", err, msg.Body)
@@ -243,6 +247,20 @@ func TestAgentLoopWriterRefusalPassthrough(t *testing.T) {
 	reply := h.waitReply(t, 1)
 	if reply.Status != StatusError || reply.ErrorCode != ErrorBookingRefused || !strings.Contains(reply.Message, "writer: not_allowlisted") {
 		t.Fatalf("reply = %#v", reply)
+	}
+}
+
+func TestAgentLoopRejectsUnallowlistedRequesterBeforeUpstream(t *testing.T) {
+	t.Parallel()
+
+	h := newSchedulerHarness(t, testNow(), nil)
+	h.sendRequest(t, "intruder", "conv-1", "msg-1", scheduleRequestBody("req-refused", "tomorrow morning", 60))
+	reply := h.waitReply(t, 1)
+	if reply.Status != StatusError || reply.ErrorCode != ErrorBookingRefused || !strings.Contains(reply.Message, "not allowlisted") {
+		t.Fatalf("reply = %#v", reply)
+	}
+	if h.upstreamCount(DefaultCalendarReadAgent) != 0 || h.upstreamCount(DefaultCalendarWriteAgent) != 0 {
+		t.Fatalf("unexpected upstream calls read=%d write=%d", h.upstreamCount(DefaultCalendarReadAgent), h.upstreamCount(DefaultCalendarWriteAgent))
 	}
 }
 

@@ -54,3 +54,8 @@ The smoke checks both Outlook read profiles, the scheduler `travel-estimate`
 capability, and a non-destructive write-agent refusal. The writer check uses a
 working-hold shaped request from an unallowlisted sender and expects
 `not_allowlisted`, so it does not create a calendar event.
+
+Scheduler write actions also fail closed unless
+`SCHEDULER_ALLOWED_REQUESTERS` explicitly names the caller. This gate applies
+to `schedule-request`, `schedule-move`, and `schedule-cancel`; the read-only
+`travel-estimate` action remains available without it.

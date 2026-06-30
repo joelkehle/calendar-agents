@@ -23,6 +23,7 @@ type Agent struct {
 	metrics *telemetry.Registry
 	cache   *replyCache
 	jobs    chan schedulerJob
+	allowed map[string]struct{}
 
 	// knowledge is nil when travel knowledge failed to load (§1.6
 	// degradation): scheduler.v1 runs exactly as before, travel-estimate and
@@ -56,6 +57,7 @@ func NewAgent(cfg Config, metrics *telemetry.Registry) *Agent {
 		metrics:  metrics,
 		cache:    newReplyCache(),
 		jobs:     make(chan schedulerJob, 64),
+		allowed:  requesterSet(cfg.AllowedRequesters),
 		routes:   make(map[string]chan busclient.InboxEvent),
 		inflight: make(map[string][]busclient.InboxEvent),
 	}
@@ -136,8 +138,12 @@ func (a *Agent) handleEvent(ctx context.Context, evt busclient.InboxEvent) error
 	// action component — a reused request_id must never replay a booked
 	// reply), and before the inflight/enqueue logic. No idempotency cache
 	// entry is stored: the reply is deterministic.
-	if strings.ToLower(strings.TrimSpace(req.Action)) == CapabilityEstimate {
+	action := strings.ToLower(strings.TrimSpace(req.Action))
+	if action == CapabilityEstimate {
 		return a.sendReply(ctx, evt, a.estimateReply(req))
+	}
+	if !a.isAllowedRequester(evt.From) {
+		return a.sendReply(ctx, evt, errorReply(req.RequestID, ErrorBookingRefused, "requesting agent is not allowlisted for scheduler writes"))
 	}
 	if reqErr := validateRequest(req); reqErr != nil {
 		if reqErr.Code == ErrorOtherPeople {
@@ -283,4 +289,17 @@ func (a *Agent) now() time.Time {
 		return a.cfg.Now()
 	}
 	return time.Now()
+}
+
+func requesterSet(requesters []string) map[string]struct{} {
+	out := make(map[string]struct{}, len(requesters))
+	for _, requester := range requesters {
+		out[requester] = struct{}{}
+	}
+	return out
+}
+
+func (a *Agent) isAllowedRequester(agentID string) bool {
+	_, ok := a.allowed[strings.TrimSpace(agentID)]
+	return ok
 }

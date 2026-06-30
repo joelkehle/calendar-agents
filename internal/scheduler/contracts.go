@@ -48,6 +48,7 @@ type Config struct {
 	AgentID            string
 	Secret             string
 	PollWaitSec        int
+	AllowedRequesters  []string
 	CalendarReadAgent  string
 	CalendarWriteAgent string
 	UpstreamTimeout    time.Duration
@@ -117,6 +118,7 @@ func withDefaults(cfg Config) Config {
 	if cfg.Workers > 4 {
 		cfg.Workers = 4
 	}
+	cfg.AllowedRequesters = ParseRequesters(cfg.AllowedRequesters)
 	if strings.TrimSpace(cfg.LocationsPath) == "" {
 		cfg.LocationsPath = "data/locations.json"
 	}
@@ -136,4 +138,21 @@ func withDefaults(cfg Config) Config {
 		cfg.WatchHorizonDays = 3
 	}
 	return cfg
+}
+
+func ParseRequesters(requesters []string) []string {
+	out := make([]string, 0, len(requesters))
+	seen := make(map[string]struct{}, len(requesters))
+	for _, requester := range requesters {
+		requester = strings.TrimSpace(requester)
+		if requester == "" {
+			continue
+		}
+		if _, ok := seen[requester]; ok {
+			continue
+		}
+		seen[requester] = struct{}{}
+		out = append(out, requester)
+	}
+	return out
 }

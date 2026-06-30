@@ -23,6 +23,7 @@ func main() {
 	httpAddr := flag.String("http-addr", envOrDefault("SCHEDULER_HTTP_ADDR", scheduler.DefaultHTTPAddr), "Health server address")
 	readAgent := flag.String("calendar-read-agent", envOrDefault("SCHEDULER_CALENDAR_READ_AGENT", scheduler.DefaultCalendarReadAgent), "calendar read agent id")
 	writeAgent := flag.String("calendar-write-agent", envOrDefault("SCHEDULER_CALENDAR_WRITE_AGENT", scheduler.DefaultCalendarWriteAgent), "calendar write agent id")
+	allowedRequesters := flag.String("allowed-requesters", envOrDefault("SCHEDULER_ALLOWED_REQUESTERS", ""), "comma-separated bus agent ids allowed to request scheduler writes")
 	// Travel knowledge paths resolve relative to the process working
 	// directory; the systemd unit must set absolute paths at deploy time.
 	locationsPath := flag.String("locations-path", envOrDefault("SCHEDULER_LOCATIONS_PATH", "data/locations.json"), "Joel's origins file (data/locations.json)")
@@ -43,6 +44,7 @@ func main() {
 		BusURL:             *busURL,
 		AgentID:            *agentID,
 		Secret:             requiredEnv("SCHEDULER_AGENT_SECRET"),
+		AllowedRequesters:  strings.Split(*allowedRequesters, ","),
 		CalendarReadAgent:  *readAgent,
 		CalendarWriteAgent: *writeAgent,
 		LocationsPath:      *locationsPath,
@@ -56,7 +58,7 @@ func main() {
 	defer cancel()
 	go shutdownHTTP(ctx, scheduler.DefaultAgentID, server)
 
-	log.Printf("starting %s bus=%s agent=%s http=%s read_agent=%s write_agent=%s watch_interval_min=%d watch_horizon_days=%d", scheduler.DefaultAgentID, *busURL, *agentID, *httpAddr, *readAgent, *writeAgent, *watchIntervalMin, *watchHorizonDays)
+	log.Printf("starting %s bus=%s agent=%s http=%s read_agent=%s write_agent=%s allowed_requesters=%d watch_interval_min=%d watch_horizon_days=%d", scheduler.DefaultAgentID, *busURL, *agentID, *httpAddr, *readAgent, *writeAgent, len(scheduler.ParseRequesters(strings.Split(*allowedRequesters, ","))), *watchIntervalMin, *watchHorizonDays)
 	if err := agent.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
 		log.Fatal(err)
 	}

@@ -15,6 +15,11 @@ Authority model approved by Joel: **the scheduler may place and move agent
 holds freely; it may never touch human meetings; anything involving another
 person is refused with an escalate-to-Joel reply.**
 
+Runtime auth hardening: downstream write authority stays with
+`ucla-tdg-scheduler-agent`, but only upstream bus agents explicitly named in
+`SCHEDULER_ALLOWED_REQUESTERS` may invoke `schedule-request`,
+`schedule-move`, or `schedule-cancel`. `travel-estimate` stays read-only.
+
 ## Problem
 
 Booking time with Joel currently requires each caller to run the mechanics
@@ -39,6 +44,8 @@ confirmation ("booked 19:00") in the same bus conversation.
 - Env (via `~/.config/ucla-tdg-scheduler-agent.env`, already staged):
   `SCHEDULER_AGENT_SECRET`, `SCHEDULER_BUS_URL` (default
   `http://localhost:8080`), `SCHEDULER_HTTP_ADDR` (default `:8245`),
+  `SCHEDULER_ALLOWED_REQUESTERS` (comma-separated caller allowlist; empty
+  refuses scheduler writes),
   `SCHEDULER_CALENDAR_READ_AGENT` (default `ucla-tdg-outlook-calendar-agent`),
   `SCHEDULER_CALENDAR_WRITE_AGENT` (default
   `ucla-tdg-outlook-calendar-write-agent`), `SCHEDULER_WATCH_INTERVAL_MIN`
