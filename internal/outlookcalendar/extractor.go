@@ -43,6 +43,19 @@ $rows = @()
 $count = 0
 foreach ($item in $restricted) {
   if ($count -ge $maxResults) { break }
+  $startValue = $null
+  $endValue = $null
+  try {
+    $startValue = $item.Start
+    $endValue = $item.End
+    if ($null -eq $startValue -or $null -eq $endValue) { continue }
+    $startValue = ([DateTime]$startValue).ToString("o")
+    $endValue = ([DateTime]$endValue).ToString("o")
+  } catch {
+    # Outlook can expose stale recurrence rows with missing/unconvertible
+    # bounds. Skip only that row instead of failing the whole date scan.
+    continue
+  }
   $sensitivity = 0
   $busyStatus = 0
   try { $sensitivity = [int]$item.Sensitivity } catch {}
@@ -59,8 +72,8 @@ foreach ($item in $restricted) {
   $rows += [pscustomobject]@{
     ID = [string]$item.GlobalAppointmentID
     EntryID = [string]$item.EntryID
-    Start = ([DateTime]$item.Start).ToString("o")
-    End = ([DateTime]$item.End).ToString("o")
+    Start = $startValue
+    End = $endValue
     Subject = $subject
     Location = $location
     IsAllDay = [bool]$item.AllDayEvent
@@ -123,27 +136,36 @@ func (e *PowerShellExtractor) ListEvents(query calendarread.EventsQuery) ([]cale
 		maxResults = 200
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), firstDuration(e.Timeout, 20*time.Second))
-	defer cancel()
-
 	command := strings.TrimSpace(e.Command)
 	if command == "" {
 		command = defaultPowerShellCommand()
 	}
-	cmd := exec.CommandContext(ctx, command, "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", outlookPowerShell)
-	cmd.Env = append(os.Environ(),
-		"JK_OUTLOOK_TIME_MIN="+start.Format(time.RFC3339),
-		"JK_OUTLOOK_TIME_MAX="+end.Format(time.RFC3339),
-		"JK_OUTLOOK_MAX_RESULTS="+strconv.Itoa(maxResults),
-		"JK_OUTLOOK_INCLUDE_PRIVATE="+strconv.FormatBool(e.IncludePrivateDetails),
-	)
+	timeout := firstDuration(e.Timeout, 20*time.Second)
+	var output []byte
+	for attempt := 0; attempt < 2; attempt++ {
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		cmd := exec.CommandContext(ctx, command, "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", outlookPowerShell)
+		cmd.Env = append(os.Environ(),
+			"JK_OUTLOOK_TIME_MIN="+start.Format(time.RFC3339),
+			"JK_OUTLOOK_TIME_MAX="+end.Format(time.RFC3339),
+			"JK_OUTLOOK_MAX_RESULTS="+strconv.Itoa(maxResults),
+			"JK_OUTLOOK_INCLUDE_PRIVATE="+strconv.FormatBool(e.IncludePrivateDetails),
+		)
 
-	output, err := cmd.CombinedOutput()
-	if ctx.Err() != nil {
-		return nil, fmt.Errorf("outlook calendar extraction timed out after %s", firstDuration(e.Timeout, 20*time.Second))
-	}
-	if err != nil {
-		return nil, fmt.Errorf("outlook calendar extraction failed: %w: %s", err, sanitizePowerShellOutput(output))
+		var err error
+		output, err = cmd.CombinedOutput()
+		timedOut := ctx.Err() != nil
+		cancel()
+		if timedOut {
+			if attempt == 0 {
+				continue
+			}
+			return nil, fmt.Errorf("outlook calendar extraction timed out after %s", timeout)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("outlook calendar extraction failed: %w: %s", err, sanitizePowerShellOutput(output))
+		}
+		break
 	}
 	rows, err := decodeRows(output)
 	if err != nil {

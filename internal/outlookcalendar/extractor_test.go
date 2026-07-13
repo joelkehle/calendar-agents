@@ -2,8 +2,12 @@ package outlookcalendar
 
 import (
 	"encoding/json"
+	"os"
 	"reflect"
+	"runtime"
+	"strings"
 	"testing"
+	"time"
 
 	calendarread "github.com/joelkehle/calendar-agents/pkg/calendarreadcontract"
 )
@@ -114,6 +118,66 @@ func TestNewPowerShellExtractorIncludesPrivateDetailsByDefault(t *testing.T) {
 
 	if !NewPowerShellExtractor().IncludePrivateDetails {
 		t.Fatal("IncludePrivateDetails default = false, want true")
+	}
+}
+
+func TestOutlookPowerShellSkipsRowsWithoutUsableBounds(t *testing.T) {
+	t.Parallel()
+
+	for _, guard := range []string{
+		"if ($null -eq $startValue -or $null -eq $endValue) { continue }",
+		"$startValue = ([DateTime]$startValue).ToString(\"o\")",
+		"$endValue = ([DateTime]$endValue).ToString(\"o\")",
+	} {
+		if !strings.Contains(outlookPowerShell, guard) {
+			t.Fatalf("outlook extractor is missing malformed-row guard %q", guard)
+		}
+	}
+}
+
+func TestPowerShellExtractorRetriesOneTimeout(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("test helper uses a POSIX executable script")
+	}
+
+	statePath := t.TempDir() + "/attempts"
+	helperPath := t.TempDir() + "/fake-powershell"
+	helper := `#!/bin/sh
+attempt=0
+if [ -f "$OUTLOOK_EXTRACTOR_TEST_STATE" ]; then
+  attempt=$(cat "$OUTLOOK_EXTRACTOR_TEST_STATE")
+fi
+attempt=$((attempt + 1))
+printf '%s' "$attempt" > "$OUTLOOK_EXTRACTOR_TEST_STATE"
+if [ "$attempt" -eq 1 ]; then
+  while :; do :; done
+fi
+printf '%s' '[]'
+`
+	if err := os.WriteFile(helperPath, []byte(helper), 0o700); err != nil {
+		t.Fatalf("write helper: %v", err)
+	}
+	t.Setenv("OUTLOOK_EXTRACTOR_TEST_STATE", statePath)
+
+	extractor := NewPowerShellExtractor()
+	extractor.Command = helperPath
+	extractor.Timeout = 25 * time.Millisecond
+	events, err := extractor.ListEvents(calendarread.EventsQuery{
+		TimeMin: "2026-07-13T00:00:00-07:00",
+		TimeMax: "2026-07-14T00:00:00-07:00",
+	})
+	if err != nil {
+		t.Fatalf("ListEvents after retry error = %v", err)
+	}
+	if len(events) != 0 {
+		t.Fatalf("events = %#v, want none", events)
+	}
+	attempts, err := os.ReadFile(statePath)
+	if err != nil {
+		t.Fatalf("read attempts: %v", err)
+	}
+	if got := strings.TrimSpace(string(attempts)); got != "2" {
+		t.Fatalf("attempts = %s, want 2", got)
 	}
 }
 

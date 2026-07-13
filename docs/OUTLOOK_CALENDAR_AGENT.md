@@ -116,6 +116,12 @@ scheduler's reconciliation watcher depends on it). EntryID is an opaque
 identifier, not content; per Joel's 2026-06-11 ruling it is exposed for
 masked private events too.
 
+Extraction is row-tolerant: stale Outlook recurrence rows with null or
+unconvertible start/end values are skipped without failing the surrounding
+date query. A timed-out PowerShell extraction is retried once with a fresh
+process; a second timeout is returned to the caller. The scheduler watcher
+continues to suppress cancellation whenever any date remains unreadable.
+
 Private Outlook appointments are visible by default because this agent runs on
 Joel-owned machines with Joel's Outlook permissions. Set
 `OUTLOOK_CALENDAR_INCLUDE_PRIVATE_DETAILS=false` only for a deliberately
