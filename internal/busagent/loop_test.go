@@ -22,8 +22,9 @@ type loopTestServer struct {
 	registerCalls int
 	pollCalls     int
 
-	onRegister func(call int, body map[string]any)
-	onPoll     func(w http.ResponseWriter, r *http.Request, call int)
+	onRegister      func(call int, body map[string]any)
+	onRegisterError func(call int) bool
+	onPoll          func(w http.ResponseWriter, r *http.Request, call int)
 
 	server *httptest.Server
 }
@@ -47,6 +48,10 @@ func (s *loopTestServer) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		s.registerCalls++
 		call := s.registerCalls
 		s.mu.Unlock()
+		if s.onRegisterError != nil && s.onRegisterError(call) {
+			http.Error(w, `{"error":"unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
 		if s.onRegister != nil {
 			s.onRegister(call, body)
 		}
@@ -432,6 +437,47 @@ func TestRunHeartbeatContinuesWhileHandlerBlocked(t *testing.T) {
 	defer server.mu.Unlock()
 	if server.registerCalls < 2 {
 		t.Fatalf("register calls = %d, want >= 2", server.registerCalls)
+	}
+}
+
+func TestRunRetriesInitialRegisterUntilBusReachable(t *testing.T) {
+	t.Parallel()
+
+	origSleep := sleep
+	sleep = func(time.Duration) {}
+	t.Cleanup(func() { sleep = origSleep })
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	server := newLoopTestServer(t)
+	server.onRegisterError = func(call int) bool {
+		return call <= 2
+	}
+	server.onRegister = func(call int, _ map[string]any) {
+		if call >= 3 {
+			cancel()
+		}
+	}
+	server.onPoll = func(w http.ResponseWriter, _ *http.Request, call int) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"events":[],"cursor":"0"}`))
+	}
+
+	loop := New(LoopConfig{
+		BusURL:  server.server.URL,
+		AgentID: "retry-agent",
+		Secret:  "secret",
+	})
+
+	err := loop.Run(ctx)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("Run() error = %v, want context.Canceled", err)
+	}
+	server.mu.Lock()
+	defer server.mu.Unlock()
+	if server.registerCalls < 3 {
+		t.Fatalf("register calls = %d, want >= 3 (two failures then success)", server.registerCalls)
 	}
 }
 

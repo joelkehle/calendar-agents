@@ -79,7 +79,7 @@ func (l *Loop) Client() *busclient.Client {
 }
 
 func (l *Loop) Run(ctx context.Context) error {
-	if err := l.register(ctx); err != nil {
+	if err := l.registerWithRetry(ctx); err != nil {
 		return err
 	}
 	if err := l.initializeCursor(ctx); err != nil {
@@ -269,6 +269,31 @@ func (l *Loop) runHeartbeat(ctx context.Context) {
 				}
 				log.Printf("%s heartbeat register failed: %v", l.cfg.AgentID, err)
 			}
+		}
+	}
+}
+
+// registerWithRetry retries the initial bus registration with capped backoff.
+// Agents start at Windows logon before Tailscale DNS is ready; a one-shot
+// initial register turns that race into a dead agent until the next logon
+// (cause of the 2026-06/07 calendar pipeline outage).
+func (l *Loop) registerWithRetry(ctx context.Context) error {
+	backoff := time.Second
+	for {
+		err := l.register(ctx)
+		if err == nil {
+			return nil
+		}
+		if ctx.Err() != nil || l.shouldSuppressShutdownErr(err) {
+			return err
+		}
+		log.Printf("%s initial register failed (retrying in %s): %v", l.cfg.AgentID, backoff, err)
+		sleep(backoff)
+		if ctx.Err() != nil {
+			return err
+		}
+		if backoff *= 2; backoff > 60*time.Second {
+			backoff = 60 * time.Second
 		}
 	}
 }
