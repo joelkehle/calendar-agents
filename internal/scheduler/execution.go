@@ -59,6 +59,7 @@ func (a *Agent) executeRequest(ctx context.Context, session upstreamSession, job
 	}
 	events, err := a.fetchCalendarEvents(ctx, session, windows, "read")
 	if err != nil {
+		a.recordCalendarWorkBlocked("read")
 		return errorReply(req.RequestID, ErrorUpstreamUnavailable, err.Error())
 	}
 	summary := holdSummary(req, job.evt.From)
@@ -97,6 +98,7 @@ func (a *Agent) executeMove(ctx context.Context, session upstreamSession, job sc
 	}
 	events, err := a.fetchCalendarEvents(ctx, session, windows, "read-move")
 	if err != nil {
+		a.recordCalendarWorkBlocked("read")
 		return errorReply(req.RequestID, ErrorUpstreamUnavailable, err.Error())
 	}
 	var extraBusy []BusyInterval
@@ -281,11 +283,13 @@ func (a *Agent) writeRequest(ctx context.Context, session upstreamSession, step 
 func (a *Agent) writeMutationWithKey(ctx context.Context, session upstreamSession, step string, payload any, metaRequestID string) (outlookcalendarwrite.MutationResponse, error) {
 	raw, err := a.requestUpstream(ctx, session, a.cfg.CalendarWriteAgent, step, payload, metaRequestID)
 	if err != nil {
+		a.recordCalendarWorkBlocked("write")
 		return outlookcalendarwrite.MutationResponse{}, err
 	}
 	var resp outlookcalendarwrite.MutationResponse
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		a.recordCalendarDependencyError(a.cfg.CalendarWriteAgent)
+		a.recordCalendarWorkBlocked("write")
 		return outlookcalendarwrite.MutationResponse{}, fmt.Errorf("decode writer response: %w", err)
 	}
 	if strings.TrimSpace(resp.Error) != "" {
@@ -349,8 +353,21 @@ func (a *Agent) recordCalendarDependencySuccess(target string) {
 	switch a.calendarDependencyKind(target) {
 	case "read":
 		a.metrics.SetGauge("schedule_calendar_read_dependency_available", 1)
+		a.metrics.SetGauge("schedule_calendar_read_work_blocked", 0)
 	case "write":
 		a.metrics.SetGauge("schedule_calendar_write_dependency_available", 1)
+		a.metrics.SetGauge("schedule_calendar_write_work_blocked", 0)
+	}
+}
+
+func (a *Agent) recordCalendarWorkBlocked(kind string) {
+	switch kind {
+	case "read":
+		a.metrics.IncCounter("schedule_calendar_read_work_blocked")
+		a.metrics.SetGauge("schedule_calendar_read_work_blocked", 1)
+	case "write":
+		a.metrics.IncCounter("schedule_calendar_write_work_blocked")
+		a.metrics.SetGauge("schedule_calendar_write_work_blocked", 1)
 	}
 }
 
@@ -548,6 +565,7 @@ func (a *Agent) executeOffsiteRequest(ctx context.Context, session upstreamSessi
 	now := a.now()
 	events, err := a.fetchCalendarEvents(ctx, session, windows, "read")
 	if err != nil {
+		a.recordCalendarWorkBlocked("read")
 		return errorReply(req.RequestID, ErrorUpstreamUnavailable, err.Error())
 	}
 	summary := holdSummary(req, job.evt.From)
@@ -777,6 +795,7 @@ func (a *Agent) holdPresent(ctx context.Context, session upstreamSession, summar
 	day := localDateStart(start, loc)
 	events, err := a.fetchCalendarEvents(ctx, session, []Interval{{Start: day, End: day.AddDate(0, 0, 1)}}, "verify-hold")
 	if err != nil {
+		a.recordCalendarWorkBlocked("read")
 		return false, err
 	}
 	for _, event := range events {

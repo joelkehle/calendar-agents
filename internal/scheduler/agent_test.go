@@ -186,6 +186,12 @@ func TestAgentLoopHappyPath(t *testing.T) {
 	if got := metricGaugeValue(t, h.metrics, "schedule_calendar_write_dependency_available"); got != 1 {
 		t.Fatalf("write dependency available = %d, want 1", got)
 	}
+	if got := metricGaugeValue(t, h.metrics, "schedule_calendar_read_work_blocked"); got != 0 {
+		t.Fatalf("read work blocked = %d, want 0", got)
+	}
+	if got := metricGaugeValue(t, h.metrics, "schedule_calendar_write_work_blocked"); got != 0 {
+		t.Fatalf("write work blocked = %d, want 0", got)
+	}
 }
 
 func TestAgentLoopUpstreamTimeout(t *testing.T) {
@@ -201,6 +207,52 @@ func TestAgentLoopUpstreamTimeout(t *testing.T) {
 	}
 	if h.upstreamCount(DefaultCalendarReadAgent) != 2 {
 		t.Fatalf("read attempts = %d, want 2", h.upstreamCount(DefaultCalendarReadAgent))
+	}
+	if got := metricValue(t, h.metrics, "schedule_calendar_read_work_blocked"); got != 1 {
+		t.Fatalf("read work blocked counter = %d, want 1", got)
+	}
+	if got := metricGaugeValue(t, h.metrics, "schedule_calendar_read_work_blocked"); got != 1 {
+		t.Fatalf("read work blocked gauge = %d, want 1", got)
+	}
+}
+
+func TestCalendarDependencySuccessClearsBlockedWork(t *testing.T) {
+	t.Parallel()
+
+	h := newSchedulerHarness(t, testNow(), func(upstreamMessage) (string, bool) {
+		return "", false
+	})
+	h.agent.recordCalendarWorkBlocked("read")
+	h.agent.recordCalendarWorkBlocked("write")
+	h.agent.recordCalendarDependencySuccess(DefaultCalendarReadAgent)
+	h.agent.recordCalendarDependencySuccess(DefaultCalendarWriteAgent)
+	if got := metricGaugeValue(t, h.metrics, "schedule_calendar_read_work_blocked"); got != 0 {
+		t.Fatalf("read work blocked = %d, want 0 after recovery", got)
+	}
+	if got := metricGaugeValue(t, h.metrics, "schedule_calendar_write_work_blocked"); got != 0 {
+		t.Fatalf("write work blocked = %d, want 0 after recovery", got)
+	}
+}
+
+func TestAgentLoopWriterTimeoutMarksBlockedWork(t *testing.T) {
+	t.Parallel()
+
+	h := newSchedulerHarness(t, testNow(), func(msg upstreamMessage) (string, bool) {
+		if msg.To == DefaultCalendarReadAgent {
+			return calendarResponse(nil), true
+		}
+		return "", false
+	})
+	h.sendRequest(t, "caller", "conv-writer-timeout", "msg-writer-timeout", scheduleRequestBody("req-writer-timeout", "tomorrow morning", 60))
+	reply := h.waitReply(t, 1)
+	if reply.Status != StatusError || reply.ErrorCode != ErrorUpstreamUnavailable {
+		t.Fatalf("reply = %#v, want upstream_unavailable", reply)
+	}
+	if got := metricValue(t, h.metrics, "schedule_calendar_write_work_blocked"); got != 1 {
+		t.Fatalf("write work blocked counter = %d, want 1", got)
+	}
+	if got := metricGaugeValue(t, h.metrics, "schedule_calendar_write_work_blocked"); got != 1 {
+		t.Fatalf("write work blocked gauge = %d, want 1", got)
 	}
 }
 

@@ -52,6 +52,8 @@ type upstreamSession struct {
 
 func NewAgent(cfg Config, metrics *telemetry.Registry) *Agent {
 	cfg = withDefaults(cfg)
+	metrics.SetGauge("schedule_calendar_read_work_blocked", 0)
+	metrics.SetGauge("schedule_calendar_write_work_blocked", 0)
 	a := &Agent{
 		cfg:      cfg,
 		metrics:  metrics,

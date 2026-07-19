@@ -39,8 +39,12 @@ confirmation ("booked 19:00") in the same bus conversation.
 - HTTP on `:8245` (registered in manager port-allocations): `GET /health`,
   `GET /metrics` (reuse `internal/telemetry` registry like the other agents).
   Metrics include separate Outlook read/write dependency request/error counters,
-  availability gauges, and a writer-refusal counter; `/health` remains process
-  health.
+  availability gauges, a writer-refusal counter, and read/write
+  `schedule_calendar_*_work_blocked` counters plus gauges. A blocked-work gauge
+  is set only when a scheduler request or required watcher write cannot use its
+  dependency; ordinary background read failures do not page. The matching
+  dependency's next successful response clears the gauge. `/health` remains
+  process health.
 - Env (via `~/.config/ucla-tdg-scheduler-agent.env`, already staged):
   `SCHEDULER_AGENT_SECRET`, `SCHEDULER_BUS_URL` (default
   `http://localhost:8080`), `SCHEDULER_HTTP_ADDR` (default `:8245`),
