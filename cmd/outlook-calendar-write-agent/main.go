@@ -23,6 +23,7 @@ func main() {
 	httpAddr := flag.String("http-addr", envOrDefault("OUTLOOK_CALENDAR_WRITE_HTTP_ADDR", outlookcalendarwrite.DefaultHTTPAddr), "Health server address")
 	powerShell := flag.String("powershell", envOrDefault("OUTLOOK_CALENDAR_WRITE_POWERSHELL", ""), "PowerShell executable path")
 	dryRun := flag.Bool("dry-run", envBool("OUTLOOK_CALENDAR_WRITE_DRY_RUN", true), "return would-write responses without mutating Outlook")
+	guardRequesters := flag.String("guard-requesters", envOrDefault("OUTLOOK_CALENDAR_WRITE_GUARD_REQUESTERS", outlookcalendarwrite.DefaultGuardRequesterID), "comma-separated bus agent ids allowed to create guard blocks")
 	holdRequesters := flag.String("hold-requesters", envOrDefault("OUTLOOK_CALENDAR_WRITE_HOLD_REQUESTERS", ""), "comma-separated bus agent ids allowed to create working holds")
 	flag.Parse()
 
@@ -55,6 +56,7 @@ func main() {
 		AgentID:           *agentID,
 		Secret:            secret,
 		DryRun:            *dryRun,
+		GuardRequesters:   outlookcalendarwrite.ParseHoldRequesters(*guardRequesters),
 		HoldRequesters:    outlookcalendarwrite.ParseHoldRequesters(*holdRequesters),
 		HoldTimeZoneOK:    holdTimeZoneOK,
 		HoldTimeZoneError: holdTimeZoneError,

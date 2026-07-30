@@ -26,7 +26,8 @@ It does not delete events, send email, invite attendees, or create recurring eve
 It may create a one-day all-day busy event for the calendar guard's
 `Meeting Quota Reached` block, a timed busy working hold whose summary starts
 `Joel + `, or a timed busy travel block whose summary starts `Travel: `, the
-latter two only when the requesting bus agent is allowlisted.
+requested event class only when the authenticated bus sender is allowlisted for
+that class.
 
 The writer processes at most one mutation at a time: `busagent.Loop` dispatches
 events sequentially from a single goroutine. This serialization is a contract
@@ -43,7 +44,11 @@ managed_by=jk-calendar-guard-agent
 owner_agent=ucla-tdg-outlook-calendar-write-agent
 ```
 
-Patch requests first read the existing Outlook event and refuse to mutate it unless both marker lines are already present.
+Guard inserts and patches are accepted only from
+`OUTLOOK_CALENDAR_WRITE_GUARD_REQUESTERS` (default:
+`jk-calendar-guard-agent`). Patch requests first read the existing Outlook
+event and refuse to mutate it unless both marker lines are already present as
+exact body lines.
 
 Working holds append an agent-generated marker block. Request bodies must not
 provide any `managed_by=`, `owner_agent=`, or `hold_class=` lines:
@@ -204,7 +209,8 @@ Dry-run responses return:
 - Live travel patches (including cancels) are stale-snapshot-checked: if the event's live start/end moved between the read and the write, the patch fails with `error_code: "conflict"` (`conflict: stale snapshot ...`). Treat that as "re-read and re-plan from fresh state", never retry-as-is. Hold patches keep today's unchecked behavior. Travel cancel patches may set only `summary` and `show_as`; `location` is refused on cancel.
 - **Replay visibility (SCHEDULER_TRAVEL_SPEC §3.7):** every response served from the 24-hour idempotency cache (hold and travel classes alike) carries `"replayed": true`; fresh responses omit the field. The cached event reflects the event AS INSERTED, not its current state — a replayed success says nothing about whether the event has since been cancelled. Callers composing multi-step writes MUST verify replayed prerequisites (the scheduler's offsite-booking replay guard does this via events-list).
 - **Budget release on cancel (SCHEDULER_TRAVEL_SPEC §3.6):** a LIVE travel patch that transitions a block into the cancelled state returns one unit of the cancelling sender's travel insert budget for the block's event local date (metric `event_travel_budget_released`). Double-cancels release nothing. The HOLD quota deliberately has no release — hold-quota burn under failed-booking compensation is accepted v1 behavior (travel spec §3.6).
-- `OUTLOOK_CALENDAR_WRITE_HOLD_REQUESTERS` is a comma-separated allowlist. Unset or empty refuses hold and travel writes and leaves guard writes unaffected.
+- `OUTLOOK_CALENDAR_WRITE_GUARD_REQUESTERS` is a comma-separated allowlist for guard inserts and patches. Unset or empty defaults to `jk-calendar-guard-agent`.
+- `OUTLOOK_CALENDAR_WRITE_HOLD_REQUESTERS` is a comma-separated allowlist. Unset or empty refuses hold and travel writes.
 - `attendees`, `conferenceData`, and recurrence fields are rejected.
 - Private calendar details and request bodies are not written to logs.
 
@@ -245,12 +251,14 @@ Install as a scheduled task in dry-run mode:
   -BusUrl "http://beelink:8080" `
   -AgentId "ucla-tdg-outlook-calendar-write-agent" `
   -TaskName "ucla-tdg-outlook-calendar-write-agent" `
+  -GuardRequesters "jk-calendar-guard-agent" `
   -HoldRequesters "jk-fable-operator,ucla-tdg-scheduler-agent"
 ```
 
 Current UCLA scheduled-task value:
 
 ```text
+OUTLOOK_CALENDAR_WRITE_GUARD_REQUESTERS=jk-calendar-guard-agent
 OUTLOOK_CALENDAR_WRITE_HOLD_REQUESTERS=jk-fable-operator,ucla-tdg-scheduler-agent
 ```
 
@@ -264,6 +272,7 @@ To explicitly allow live Outlook mutation after human approval:
   -AgentId "ucla-tdg-outlook-calendar-write-agent" `
   -TaskName "ucla-tdg-outlook-calendar-write-agent" `
   -DryRun "false" `
+  -GuardRequesters "jk-calendar-guard-agent" `
   -HoldRequesters "jk-fable-operator,ucla-tdg-scheduler-agent"
 ```
 

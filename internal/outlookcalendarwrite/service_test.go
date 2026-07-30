@@ -22,7 +22,7 @@ func TestPowerShellScriptKeepsGuardDefenseAndAddsHoldConflictCheck(t *testing.T)
 	t.Parallel()
 
 	required := []string{
-		`if (-not $body.Contains("managed_by=jk-calendar-guard-agent") -or -not $body.Contains("owner_agent=ucla-tdg-outlook-calendar-write-agent"))`,
+		`if (-not (Test-GuardOwnershipMarker $body))`,
 		`Test-HoldMarker $body`,
 		`function Test-GuardOwnershipMarker($body) {`,
 		`function Test-MeetingBufferPlaceholder($item) {`,

@@ -18,31 +18,34 @@ type AgentConfig struct {
 	Secret            string
 	PollWaitSec       int
 	DryRun            bool
+	GuardRequesters   []string
 	HoldRequesters    []string
 	HoldTimeZoneOK    bool
 	HoldTimeZoneError string
 }
 
 type Agent struct {
-	cfg            AgentConfig
-	service        Service
-	loop           *busagent.Loop
-	metrics        *telemetry.Registry
-	holdRequesters map[string]struct{}
-	holdCache      *holdResponseCache
-	holdRates      *holdRateLimiter
-	travelRates    *holdRateLimiter
+	cfg             AgentConfig
+	service         Service
+	loop            *busagent.Loop
+	metrics         *telemetry.Registry
+	guardRequesters map[string]struct{}
+	holdRequesters  map[string]struct{}
+	holdCache       *holdResponseCache
+	holdRates       *holdRateLimiter
+	travelRates     *holdRateLimiter
 }
 
 func NewAgent(cfg AgentConfig, service Service, metrics *telemetry.Registry) *Agent {
 	a := &Agent{
-		cfg:            cfg,
-		service:        service,
-		metrics:        metrics,
-		holdRequesters: holdRequesterSet(cfg.HoldRequesters),
-		holdCache:      newHoldResponseCache(),
-		holdRates:      newHoldRateLimiter(),
-		travelRates:    newTravelRateLimiter(),
+		cfg:             cfg,
+		service:         service,
+		metrics:         metrics,
+		guardRequesters: guardRequesterSet(cfg.GuardRequesters),
+		holdRequesters:  holdRequesterSet(cfg.HoldRequesters),
+		holdCache:       newHoldResponseCache(),
+		holdRates:       newHoldRateLimiter(),
+		travelRates:     newTravelRateLimiter(),
 	}
 	a.loop = busagent.New(busagent.LoopConfig{
 		BusURL:        cfg.BusURL,
@@ -97,6 +100,9 @@ func (a *Agent) handleInsert(ctx context.Context, evt busclient.InboxEvent, req 
 	if IsTravelInsert(req.Event) {
 		return a.handleTravelInsert(ctx, evt, calendarID, req)
 	}
+	if !a.isGuardRequester(evt.From) {
+		return a.sendErrorCode(ctx, evt, "not_allowlisted", "requesting agent is not allowlisted for guard blocks")
+	}
 	event, err := BuildInsert(req.Event)
 	if err != nil {
 		return a.sendError(ctx, evt, err.Error())
@@ -146,6 +152,9 @@ func (a *Agent) handlePatch(ctx context.Context, evt busclient.InboxEvent, req R
 func (a *Agent) handleGuardPatch(ctx context.Context, evt busclient.InboxEvent, calendarID, eventID string, existing StoredEvent, req Request) error {
 	if a.isHoldRequester(evt.From) {
 		return a.sendErrorCode(ctx, evt, "not_owned", "hold requesters may only patch their own working holds")
+	}
+	if !a.isGuardRequester(evt.From) {
+		return a.sendErrorCode(ctx, evt, "not_allowlisted", "requesting agent is not allowlisted for guard blocks")
 	}
 	merged, err := BuildPatch(existing, req.Event)
 	if err != nil {
@@ -430,6 +439,18 @@ func ParseHoldRequesters(value string) []string {
 }
 
 func holdRequesterSet(requesters []string) map[string]struct{} {
+	return requesterSet(requesters)
+}
+
+func guardRequesterSet(requesters []string) map[string]struct{} {
+	out := requesterSet(requesters)
+	if len(out) == 0 {
+		out[DefaultGuardRequesterID] = struct{}{}
+	}
+	return out
+}
+
+func requesterSet(requesters []string) map[string]struct{} {
 	out := make(map[string]struct{}, len(requesters))
 	for _, requester := range requesters {
 		requester = strings.TrimSpace(requester)
@@ -438,6 +459,11 @@ func holdRequesterSet(requesters []string) map[string]struct{} {
 		}
 	}
 	return out
+}
+
+func (a *Agent) isGuardRequester(agentID string) bool {
+	_, ok := a.guardRequesters[strings.TrimSpace(agentID)]
+	return ok
 }
 
 func (a *Agent) isHoldRequester(agentID string) bool {

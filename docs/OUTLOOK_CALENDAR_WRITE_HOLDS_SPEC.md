@@ -32,8 +32,10 @@ unchanged; every widening below applies only to the hold path.
 checks: an insert is a *working hold* iff its summary starts with
 `HoldSummaryPrefix = "Joel + "`; a patch targets a hold iff the EXISTING event
 carries the exact hold marker block (below). Everything else flows through the
-guard path exactly as today — including when `OUTLOOK_CALENDAR_WRITE_HOLD_REQUESTERS`
-is unset. Regression test required: guard insert succeeds with the env unset.
+guard path and requires a sender in `OUTLOOK_CALENDAR_WRITE_GUARD_REQUESTERS`
+(default `jk-calendar-guard-agent`) — independent of
+`OUTLOOK_CALENDAR_WRITE_HOLD_REQUESTERS`. Regression test required: guard insert
+succeeds for the default guard requester with the hold env unset.
 
 ### Working-hold validation (insert)
 
@@ -111,7 +113,10 @@ No delete capability is added. PowerShell maps `show_as: free` →
 
 - Env `OUTLOOK_CALENDAR_WRITE_HOLD_REQUESTERS`: comma-separated allowlist of bus
   agent ids permitted hold inserts/patches. Unset/empty ⇒ hold requests refused
-  (fail closed); guard path unaffected.
+  (fail closed).
+- Env `OUTLOOK_CALENDAR_WRITE_GUARD_REQUESTERS`: comma-separated allowlist of
+  bus agent ids permitted guard inserts/patches. Unset/empty defaults to
+  `jk-calendar-guard-agent`.
 - Caps on LIVE (non-dry-run) successful inserts, keyed by the hold's *event
   local date* (not submission date): max 2 per requester per event-date, max 5
   globally per event-date. In-memory; restart resets — accepted because the

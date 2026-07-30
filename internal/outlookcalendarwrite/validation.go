@@ -339,8 +339,17 @@ func HoldEventLocalDate(event EventInput) (string, bool) {
 }
 
 func HasOwnershipMarker(description string) bool {
-	description = strings.TrimSpace(description)
-	return strings.Contains(description, ManagedByMarker) && strings.Contains(description, OwnerAgentMarker)
+	hasManagedBy := false
+	hasOwnerAgent := false
+	for _, line := range descriptionLines(description) {
+		switch line {
+		case ManagedByMarker:
+			hasManagedBy = true
+		case OwnerAgentMarker:
+			hasOwnerAgent = true
+		}
+	}
+	return hasManagedBy && hasOwnerAgent
 }
 
 func ensureOwnershipMarker(description string) string {

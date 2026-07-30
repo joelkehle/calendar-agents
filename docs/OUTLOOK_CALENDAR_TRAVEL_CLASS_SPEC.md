@@ -96,11 +96,11 @@ Spec rulings made here (do not re-litigate during implementation):
 
 ### Forgery resistance and classification precedence (blocker fix)
 
-The guard insert path is unauthenticated by design (any bus agent may insert
-quota blocks, and `TestAgentGuardInsertSucceedsWithHoldRequestersUnset`
-freezes that). Guard `BuildInsert` today performs no reserved-marker-key check,
-so without the rulings below, any bus agent could insert a guard-summary event
-whose description embeds a forged 3-line hold/travel marker
+The guard insert path now requires a sender in
+`OUTLOOK_CALENDAR_WRITE_GUARD_REQUESTERS` (default:
+`jk-calendar-guard-agent`). This section records the marker-forgery fix that
+also protects the path: without the rulings below, an accepted guard-summary
+event could carry a description that embeds a forged 3-line hold/travel marker
 (`managed_by=<victim>` / `owner_agent=...` / `hold_class=travel-block`);
 `ensureOwnershipMarker` would append the guard marker alongside it, the stored
 event would satisfy `HasTravelMarker`, `handlePatch` would route it to the
@@ -109,7 +109,7 @@ events it never created. Two rulings close this:
 
 1. **Patch classification precedence — guard ownership wins.** `handlePatch`
    classifies the EXISTING event in this order: (a) body satisfies the guard
-   ownership check (`HasOwnershipMarker` — exact substrings
+   ownership check (`HasOwnershipMarker` — exact marker lines
    `managed_by=jk-calendar-guard-agent` + `owner_agent=ucla-tdg-outlook-calendar-write-agent`)
    → ALWAYS guard class, regardless of any embedded hold/travel marker;
    (b) else exact 3-line hold marker → hold path; (c) else exact 3-line travel
@@ -120,10 +120,9 @@ events it never created. Two rulings close this:
    string); otherwise guard `BuildPatch`, which refuses unmarked events as
    today. Legitimate holds/travel blocks carry `managed_by=<requester>`, never
    the guard `managed_by=jk-calendar-guard-agent` line, so step (a) never
-   captures them; every existing hold and guard test passes unmodified
-   (verified: no existing test exercises dual markers). An event that was
-   forged through the guard path is therefore permanently guard-class and can
-   never be managed via the hold/travel paths.
+   captures them. An event that somehow carries both guard ownership and a
+   forged travel/hold marker is therefore permanently guard-class and can never
+   be managed via the hold/travel paths.
 2. **Guard inserts refuse `hold_class=`.** Guard `BuildInsert` gains exactly
    one new refusal: a description containing the substring `hold_class=`
    (case-insensitive, same lowercasing as `containsReservedHoldMarkerKey`) is
@@ -139,10 +138,7 @@ events it never created. Two rulings close this:
    is untouched — `ensureOwnershipMarker` legitimately tolerates round-tripped
    guard markers, and ruling 1 already makes forged-marker patches guard-class.
 
-These are the only two deviations from "guard path byte-for-byte". Both leave
-every existing guard test passing unmodified (no existing guard test sends
-`hold_class=` or dual markers — verified against `validation_test.go`,
-`agent_test.go`, `hold_agent_test.go`, `hold_agent_extension_test.go`) and do
+These are the marker-specific deviations from "guard path byte-for-byte" and do
 not change behavior for the live guard agent's actual payloads. They are
 required to make this spec's safety claims ("created/patched/cancelled ONLY by
 allowlisted requesters"; "`managed_by` is ALWAYS the authenticated sender")
@@ -154,8 +150,8 @@ true, which is why they are in scope despite the general guard freeze.
 
 - summary starts with `HoldSummaryPrefix = "Joel + "` → working-hold path (unchanged);
 - else summary starts with `TravelSummaryPrefix = "Travel: "` → travel path (new);
-- else → guard path, exactly as today (plus the `hold_class=` refusal above),
-  including when the allowlist env is unset.
+- else → guard path, requiring `OUTLOOK_CALENDAR_WRITE_GUARD_REQUESTERS`
+  (default `jk-calendar-guard-agent`) and the `hold_class=` refusal above.
 
 The two prefixes are disjoint, so order is immaterial; check hold first to keep
 the existing code shape. Note the classification trims the summary first
@@ -360,8 +356,8 @@ messages stay byte-identical, and the travel caller passing `"travel-block"`.
 
 - Allowlist: the existing `OUTLOOK_CALENDAR_WRITE_HOLD_REQUESTERS` set gates
   travel inserts AND patches (test-asserted, both: tests 21–22). Unset/empty ⇒
-  travel requests refused (`not_allowlisted`, fail closed); guard path
-  unaffected.
+  travel requests refused (`not_allowlisted`, fail closed). Guard writes use
+  the separate `OUTLOOK_CALENDAR_WRITE_GUARD_REQUESTERS` allowlist.
 - Quota: caps on LIVE (non-dry-run) successful inserts, keyed by the block's
   *event local date* (reuse `HoldEventLocalDate` / `storedEventLocalDate`):
   max **8 per requester per event-date**, max **20 globally per event-date**.
@@ -682,7 +678,7 @@ cache short-circuits before quota is exercised):
 | 17 | `TestAgentTravelCancelDuplicateRequestIDReturnsCachedResponse` | cancel idempotency via cache, 1 patch call |
 | 18 | `TestAgentTravelDoubleCancelSucceedsWithoutMutation` | already-cancelled block + cancel patch → success response, 0 patch calls |
 | 19 | `TestAgentTravelInsertDryRunDefault` | `DryRun: true` → `would_write` populated, no service call, no quota consumption |
-| 20 | `TestAgentGuardInsertStillSucceedsWithTravelCodePresent` | guard insert with allowlist unset still succeeds (companion to existing test; existing one stays untouched) |
+| 20 | `TestAgentGuardInsertStillSucceedsWithTravelCodePresent` | guard insert from the default guard requester still succeeds with the hold/travel allowlist unset |
 | 21 | `TestAgentTravelPatchRequiresAllowlistedRequester` | existing travel-marked event; sender not in allowlist → `not_allowlisted`, 0 PatchEvent calls |
 | 22 | `TestAgentTravelPatchRefusedOnTimeZoneMismatch` | existing travel-marked event; `HoldTimeZoneOK: false` → `tz_mismatch`, 0 PatchEvent calls |
 | 23 | `TestAgentPatchGuardOwnershipPrecedesForgedTravelMarker` | existing event whose body contains BOTH the guard ownership marker and a forged 3-line travel marker: patch from an allowlisted requester → `not_owned` with the existing message (guard class wins); patch never reaches the travel path (0 travel-path effects, 0 PatchEvent calls) |
@@ -761,7 +757,7 @@ else was accepted.
 
 | # | Severity | Finding | Disposition |
 |---|---|---|---|
-| 1 | blocker | Guard insert path lets any bus agent forge travel markers (guard `BuildInsert` has no reserved-key check and no allowlist; forged `HasTravelMarker` bodies route patches to the travel path; no dual-marker precedence). | **Accepted with one correction.** Verified: guard `BuildInsert` (validation.go) never calls `containsReservedHoldMarkerKey`, and the guard insert path is allowlist-free. Fixed via §Forgery resistance: guard-ownership-first patch precedence + guard-insert `hold_class=` refusal + untrusted-body rule for the watcher. **Correction:** the finding's suggested "reject reserved marker keys in guard BuildInsert" (full set) is NOT safe — the live `jk-calendar-guard-agent` legitimately embeds `managed_by=jk-calendar-guard-agent` and `owner_agent=<writer>` lines in its insert descriptions (`internal/calendarguard/agent.go`, `writeRequestForBlock`), which the finding itself flagged as needing verification. Only `hold_class=` is rejected; that alone closes the forge vector since both marker matchers require the `hold_class=` third line. Test 8a pins both halves. |
+| 1 | blocker | Guard insert path let any bus agent forge travel markers (guard `BuildInsert` had no reserved-marker check and no guard-requester allowlist; forged `HasTravelMarker` bodies routed patches to the travel path; no dual-marker precedence). | **Accepted with one correction; later hardened.** The travel-class fix added §Forgery resistance: guard-ownership-first patch precedence + guard-insert `hold_class=` refusal + untrusted-body rule for the watcher. Current code also gates guard inserts/patches with `OUTLOOK_CALENDAR_WRITE_GUARD_REQUESTERS` (default `jk-calendar-guard-agent`). **Correction:** the finding's suggested "reject reserved marker keys in guard BuildInsert" (full set) is NOT safe — the live `jk-calendar-guard-agent` legitimately embeds `managed_by=jk-calendar-guard-agent` and `owner_agent=<writer>` lines in its insert descriptions (`internal/calendarguard/agent.go`, `writeRequestForBlock`), which the finding itself flagged as needing verification. Only `hold_class=` is rejected; that alone closes the forge vector since both marker matchers require the `hold_class=` third line. Test 8a pins both halves. |
 | 2 | should-fix | Class-agnostic shared idempotency cache silently replays wrong-class responses; the scheduler's `sched-<hash>-<step>` id scheme guarantees a phase-3 collision. | **Accepted.** Verified `scheduler/execution.go` (`writeRequest`, steps `insert`/`move`/`cancel`) and the cache-before-Build ordering in `handleHoldInsert`. Travel keys are now class/action-qualified (hold keys frozen); request_id uniqueness per mutation is a normative contract rule; the same-class-same-id residual is named and pushed onto the phase-3 spec. |
 | 3 | should-fix | Stale-snapshot full-overwrite patch race; routine for a 15-min watcher. | **Accepted.** Verified the PS patch unconditionally rewrites Subject/Body/Start/End/BusyStatus with no live-time comparison, and self-exclusion blinds the conflict check to it. Fixed travel-only via `SnapshotCheckedService` + `JK_OUTLOOK_WRITE_EXPECT_START/END` → `conflict` (optional-interface design keeps frozen test fakes compiling). Hold race documented, not fixed (frozen path). Watcher re-read rule added. Test 24. |
 | 4 | should-fix | No travel-patch allowlist / tz-gate tests. | **Accepted.** Tests 21–22 added. |

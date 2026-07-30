@@ -10,6 +10,7 @@ param(
   [string]$HttpAddr = ":8219",
   [string]$TaskName = "",
   [string]$DryRun = "true",
+  [string]$GuardRequesters = "jk-calendar-guard-agent",
   [string]$HoldRequesters = "",
   [string]$InstallDir = "$env:LOCALAPPDATA\calendar-agents\outlook-calendar-write-agent"
 )
@@ -45,6 +46,7 @@ try {
   `$env:OUTLOOK_CALENDAR_WRITE_AGENT_ID = "$AgentId"
   `$env:OUTLOOK_CALENDAR_WRITE_HTTP_ADDR = "$HttpAddr"
   `$env:OUTLOOK_CALENDAR_WRITE_DRY_RUN = "$DryRun"
+  `$env:OUTLOOK_CALENDAR_WRITE_GUARD_REQUESTERS = "$GuardRequesters"
   `$env:OUTLOOK_CALENDAR_WRITE_HOLD_REQUESTERS = "$HoldRequesters"
   & "$binaryDest"
 } finally {
@@ -80,5 +82,6 @@ Write-Host "Installed and started $TaskName"
 Write-Host "Agent: $AgentId"
 Write-Host "Bus: $BusUrl"
 Write-Host "DryRun: $DryRun"
+Write-Host "GuardRequesters: $GuardRequesters"
 Write-Host "HoldRequesters: $HoldRequesters"
 Write-Host "Health: http://localhost$HttpAddr/health"

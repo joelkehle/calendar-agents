@@ -26,7 +26,7 @@ func TestAgentGuardInsertSucceedsWithHoldRequestersUnset(t *testing.T) {
 	body := `{"action":"event-insert","calendar_id":"default","event":{"summary":"Meeting Quota Reached","description":"guard day","start":{"date":"2026-05-07","time_zone":"America/Los_Angeles"},"end":{"date":"2026-05-08","time_zone":"America/Los_Angeles"},"show_as":"busy"}}`
 	if err := agent.handleEvent(context.Background(), busclient.InboxEvent{
 		Type:           "request",
-		From:           "calendar-guard",
+		From:           DefaultGuardRequesterID,
 		MessageID:      "msg-guard",
 		ConversationID: "conv-guard",
 		Body:           body,

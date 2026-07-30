@@ -93,6 +93,47 @@ func TestAgentGuardPatchPathUnchangedForGuardAgent(t *testing.T) {
 	}
 }
 
+func TestAgentGuardPatchRequiresAllowlistedRequester(t *testing.T) {
+	t.Parallel()
+
+	recorder := newBusRecorder(t)
+	patched := false
+	agent := NewAgent(AgentConfig{
+		BusURL:         recorder.server.URL,
+		AgentID:        DefaultAgentID,
+		Secret:         "secret",
+		DryRun:         false,
+		HoldRequesters: []string{"ucla-tdg-scheduler-agent"},
+		HoldTimeZoneOK: true,
+	}, fakeWriteService{
+		getEvent: func(context.Context, string, string) (StoredEvent, error) {
+			return guardStoredEvent(), nil
+		},
+		insertEvent: func(context.Context, string, StoredEvent) (StoredEvent, error) { return StoredEvent{}, nil },
+		patchEvent: func(context.Context, string, string, StoredEvent) (StoredEvent, error) {
+			patched = true
+			return StoredEvent{}, nil
+		},
+	}, telemetry.New("outlook-calendar-write-test"))
+
+	if err := agent.handleEvent(context.Background(), busclient.InboxEvent{
+		Type:           "request",
+		From:           "untrusted-agent",
+		MessageID:      "msg-1",
+		ConversationID: "conv-1",
+		Body:           `{"action":"event-patch","calendar_id":"default","event_id":"guard-1","event":{"summary":"No more meetings - updated"}}`,
+	}); err != nil {
+		t.Fatalf("handleEvent() error = %v", err)
+	}
+	if patched {
+		t.Fatal("guard patch called mutation service for unallowlisted requester")
+	}
+	resp := decodeMutationResponse(t, recorder)
+	if resp.ErrorCode != "not_allowlisted" {
+		t.Fatalf("response = %#v, want not_allowlisted", resp)
+	}
+}
+
 func TestAgentHoldPatchDuplicateRequestIDReturnsCachedResponse(t *testing.T) {
 	t.Parallel()
 

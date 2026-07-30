@@ -100,7 +100,7 @@ func TestAgentDryRunInsertReturnsWouldWriteWithoutMutating(t *testing.T) {
 	body := `{"action":"event-insert","calendar_id":"default","event":{"summary":"Meeting Quota Reached","description":"guard day","start":{"date":"2026-05-07","time_zone":"America/Los_Angeles"},"end":{"date":"2026-05-08","time_zone":"America/Los_Angeles"},"show_as":"busy"}}`
 	if err := agent.handleEvent(context.Background(), busclient.InboxEvent{
 		Type:           "request",
-		From:           "calendar-guard",
+		From:           DefaultGuardRequesterID,
 		MessageID:      "msg-1",
 		ConversationID: "conv-1",
 		Body:           body,
@@ -122,6 +122,47 @@ func TestAgentDryRunInsertReturnsWouldWriteWithoutMutating(t *testing.T) {
 	}
 	if !HasOwnershipMarker(resp.WouldWrite.Description) {
 		t.Fatalf("would_write missing marker: %#v", resp.WouldWrite)
+	}
+}
+
+func TestAgentGuardInsertRequiresAllowlistedRequester(t *testing.T) {
+	t.Parallel()
+
+	recorder := newBusRecorder(t)
+	mutated := false
+	agent := NewAgent(AgentConfig{
+		BusURL:  recorder.server.URL,
+		AgentID: DefaultAgentID,
+		Secret:  "secret",
+		DryRun:  false,
+	}, fakeWriteService{
+		getEvent: func(context.Context, string, string) (StoredEvent, error) { return StoredEvent{}, nil },
+		insertEvent: func(context.Context, string, StoredEvent) (StoredEvent, error) {
+			mutated = true
+			return StoredEvent{}, nil
+		},
+		patchEvent: func(context.Context, string, string, StoredEvent) (StoredEvent, error) { return StoredEvent{}, nil },
+	}, telemetry.New("outlook-calendar-write-test"))
+
+	body := `{"action":"event-insert","calendar_id":"default","event":{"summary":"Meeting Quota Reached","description":"guard day","start":{"date":"2026-05-07","time_zone":"America/Los_Angeles"},"end":{"date":"2026-05-08","time_zone":"America/Los_Angeles"},"show_as":"busy"}}`
+	if err := agent.handleEvent(context.Background(), busclient.InboxEvent{
+		Type:           "request",
+		From:           "untrusted-agent",
+		MessageID:      "msg-guard-deny",
+		ConversationID: "conv-guard-deny",
+		Body:           body,
+	}); err != nil {
+		t.Fatalf("handleEvent() error = %v", err)
+	}
+	if mutated {
+		t.Fatal("guard insert called mutation service for unallowlisted requester")
+	}
+	var resp MutationResponse
+	if err := json.Unmarshal([]byte(recorder.lastMessageBody(t)), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.ErrorCode != "not_allowlisted" {
+		t.Fatalf("response = %#v, want not_allowlisted", resp)
 	}
 }
 
@@ -155,7 +196,7 @@ func TestAgentPatchRefusesEventWithoutOwnershipMarker(t *testing.T) {
 
 	if err := agent.handleEvent(context.Background(), busclient.InboxEvent{
 		Type:           "request",
-		From:           "calendar-guard",
+		From:           DefaultGuardRequesterID,
 		MessageID:      "msg-1",
 		ConversationID: "conv-1",
 		Body:           `{"action":"event-patch","calendar_id":"default","event_id":"evt-1","event":{"summary":"No more meetings - patched"}}`,

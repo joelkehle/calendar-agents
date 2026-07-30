@@ -195,7 +195,7 @@ if ($action -eq "insert") {
   $body = [string]$item.Body
   $hasManagedOwnership = (Test-HoldMarker $body) -or (Test-TravelMarker $body)
   if (-not $hasManagedOwnership) {
-    if (-not $body.Contains("managed_by=jk-calendar-guard-agent") -or -not $body.Contains("owner_agent=ucla-tdg-outlook-calendar-write-agent")) {
+    if (-not (Test-GuardOwnershipMarker $body)) {
       throw "refusing to patch event without calendar guard ownership marker"
     }
   }

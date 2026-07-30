@@ -129,3 +129,17 @@ func TestBuildPatchRefusesUnownedExistingEvent(t *testing.T) {
 		t.Fatalf("BuildPatch() error = %v, want ownership marker refusal", err)
 	}
 }
+
+func TestHasOwnershipMarkerRequiresExactMarkerLines(t *testing.T) {
+	t.Parallel()
+
+	description := "ordinary appointment\nmanaged_by=jk-calendar-guard-agent-forged\nowner_agent=ucla-tdg-outlook-calendar-write-agent-other"
+	if HasOwnershipMarker(description) {
+		t.Fatalf("HasOwnershipMarker(%q) = true, want false", description)
+	}
+
+	description = "ordinary appointment\r\n" + ManagedByMarker + "   \r\n" + OwnerAgentMarker + "\r\n"
+	if !HasOwnershipMarker(description) {
+		t.Fatalf("HasOwnershipMarker(%q) = false, want true", description)
+	}
+}

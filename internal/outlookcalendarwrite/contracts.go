@@ -10,18 +10,19 @@ import (
 )
 
 const (
-	DefaultAgentID       = calendaridentity.OutlookWriteAgentID
-	DefaultHTTPAddr      = ":8219"
-	DefaultTimeZone      = calendarcontract.DefaultTimeZone
-	ManagedByMarker      = calendarcontract.GuardManagedByMarker
-	OwnerAgentMarker     = calendarcontract.OwnerAgentMarker
-	AllowedSummaryPrefix = calendarcontract.GuardSummaryPrefix
-	AllowedDaySummary    = calendarcontract.GuardDaySummary
-	HoldSummaryPrefix    = calendarcontract.HoldSummaryPrefix
-	CancelledPrefix      = calendarcontract.CancelledPrefix
-	HoldClassMarker      = calendarcontract.HoldClassMarker
-	TravelSummaryPrefix  = calendarcontract.TravelSummaryPrefix
-	TravelClassMarker    = calendarcontract.TravelClassMarker
+	DefaultAgentID          = calendaridentity.OutlookWriteAgentID
+	DefaultGuardRequesterID = calendaridentity.CalendarGuardAgentID
+	DefaultHTTPAddr         = ":8219"
+	DefaultTimeZone         = calendarcontract.DefaultTimeZone
+	ManagedByMarker         = calendarcontract.GuardManagedByMarker
+	OwnerAgentMarker        = calendarcontract.OwnerAgentMarker
+	AllowedSummaryPrefix    = calendarcontract.GuardSummaryPrefix
+	AllowedDaySummary       = calendarcontract.GuardDaySummary
+	HoldSummaryPrefix       = calendarcontract.HoldSummaryPrefix
+	CancelledPrefix         = calendarcontract.CancelledPrefix
+	HoldClassMarker         = calendarcontract.HoldClassMarker
+	TravelSummaryPrefix     = calendarcontract.TravelSummaryPrefix
+	TravelClassMarker       = calendarcontract.TravelClassMarker
 )
 
 var ReservedHoldMarkerKeys = calendarcontract.ReservedMarkerKeys()
