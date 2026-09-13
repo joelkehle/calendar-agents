@@ -32,6 +32,51 @@ func TestDecodeRowsAcceptsSingleObjectAndArray(t *testing.T) {
 	}
 }
 
+func TestDecodeRowsPreservesLiteralStringControls(t *testing.T) {
+	t.Parallel()
+	for _, wrap := range []bool{false, true} {
+		value := "before\x1aafter\tline\nend"
+		payload := `{"ID":"synthetic","Subject":"` + value + `","Location":"already\u001aescaped","Categories":"quote\" slash\\"}`
+		if wrap {
+			payload = "[" + payload + "]"
+		}
+		rows, err := decodeRows([]byte(payload))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(rows) != 1 || rows[0].Subject != value || rows[0].Location != "already\x1aescaped" || rows[0].Categories != "quote\" slash\\" {
+			t.Fatal("decoding changed synthetic string values")
+		}
+	}
+}
+
+func TestDecodeRowsStillRejectsMalformedStructure(t *testing.T) {
+	t.Parallel()
+	for _, payload := range []string{
+		"[{\"ID\":\"synthetic\"}\x1a]",
+		`{"Subject":"unterminated}`,
+		`{"Subject":"invalid\qescape"}`,
+		`{"Subject":"ok"} trailing`,
+		"{\"Subject\":\"bad\xffutf8\"}",
+		"{\"Subject\":\"escaped\\\x1a\"}",
+	} {
+		if _, err := decodeRows([]byte(payload)); err == nil {
+			t.Fatal("malformed structure was accepted")
+		}
+	}
+}
+
+func TestOutlookPowerShellUsesUTF8ConsoleOutput(t *testing.T) {
+	t.Parallel()
+	if !strings.Contains(outlookPowerShell, "[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)") {
+		t.Fatal("PowerShell console output must preserve Unicode as UTF-8 without a BOM")
+	}
+	rows, err := decodeRows([]byte(`{"Subject":"Synthetic café 日本語 🗓"}`))
+	if err != nil || len(rows) != 1 || rows[0].Subject != "Synthetic café 日本語 🗓" {
+		t.Fatal("Unicode output did not survive decoding")
+	}
+}
+
 func TestRowsToEventsNormalizesOutlookRows(t *testing.T) {
 	t.Parallel()
 
