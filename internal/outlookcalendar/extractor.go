@@ -14,12 +14,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	calendarread "github.com/joelkehle/calendar-agents/pkg/calendarreadcontract"
 )
 
 const outlookPowerShell = `
 $ErrorActionPreference = "Stop"
+[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 [System.Threading.Thread]::CurrentThread.CurrentCulture = [System.Globalization.CultureInfo]::GetCultureInfo("en-US")
 
 $timeMin = [DateTime]::Parse($env:JK_OUTLOOK_TIME_MIN, [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::RoundtripKind)
@@ -216,10 +218,14 @@ func parseTime(value string) (time.Time, error) {
 }
 
 func decodeRows(output []byte) ([]outlookRow, error) {
+	if !utf8.Valid(output) {
+		return nil, errors.New("decode outlook calendar JSON: invalid UTF-8 output")
+	}
 	text := strings.TrimSpace(string(output))
 	if text == "" {
 		return nil, nil
 	}
+	text = escapeLiteralJSONControls(text)
 	var rows []outlookRow
 	if err := json.Unmarshal([]byte(text), &rows); err == nil {
 		return rows, nil
@@ -229,6 +235,34 @@ func decodeRows(output []byte) ([]outlookRow, error) {
 		return nil, fmt.Errorf("decode outlook calendar JSON: %w", err)
 	}
 	return []outlookRow{single}, nil
+}
+
+// Preserve literal control characters exposed by the console as JSON string
+// values. Only unescaped controls inside strings are repaired; JSON decoding
+// still rejects invalid escapes, controls outside strings, and broken syntax.
+func escapeLiteralJSONControls(text string) string {
+	const hex = "0123456789abcdef"
+	var out strings.Builder
+	out.Grow(len(text))
+	inString, escaped := false, false
+	for i := 0; i < len(text); i++ {
+		c := text[i]
+		if inString && !escaped && c < 0x20 {
+			out.WriteString(`\u00`)
+			out.WriteByte(hex[c>>4])
+			out.WriteByte(hex[c&15])
+			continue
+		}
+		out.WriteByte(c)
+		if escaped {
+			escaped = false
+		} else if inString && c == '\\' {
+			escaped = true
+		} else if c == '"' {
+			inString = !inString
+		}
+	}
+	return out.String()
 }
 
 func rowsToEvents(rows []outlookRow, textFilter, timeZone string) []calendarread.Event {
